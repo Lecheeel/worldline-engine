@@ -1,0 +1,47 @@
+# Python bytecode and test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Virtual environments and local package metadata
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Build artifacts
+build/
+dist/
+*.whl
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local experiments and database files
+runs/
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.db-*
+*.parquet
+*.arrow
+
+# Logs, temporary files, and local configuration
+*.log
+tmp/
+temp/
+.cache/
+.env
+.env.*
+!.env.example
