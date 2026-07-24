@@ -196,6 +196,10 @@ class World(Protocol):
         self, snapshot: JsonValue, actions: Sequence[BoundAction]
     ) -> Sequence[CommitDecision]: ...
 
+    # Optional at runtime. Implement this hook when domain state must advance
+    # once after every successful tick commit, including ticks without writes.
+    def advance_tick(self, tick_id: int) -> None: ...
+
 
 class StateStore(Protocol):
     def save_checkpoint(

@@ -107,3 +107,6 @@ class CounterWorld:
             decisions.append(CommitDecision(action, result))
         self._state = next_state
         return tuple(decisions)
+
+    def advance_tick(self, tick_id: int) -> None:
+        del tick_id

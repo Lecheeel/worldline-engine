@@ -286,3 +286,26 @@ class SimulationRuntimeTests(unittest.TestCase):
         self.assertEqual(0, world.state["value"])
         world_error = next(event for event in sink.events if event.event_type == "world_error")
         self.assertEqual("validate_write", world_error.payload["stage"])
+
+    def test_world_advances_once_per_tick_even_without_writes(self) -> None:
+        class AdvancingWorld(CounterWorld):
+            advanced = []
+
+            def advance_tick(self, tick_id):
+                self.advanced.append(tick_id)
+
+        world = AdvancingWorld()
+        sink = MemoryEventSink()
+        simulation = make_simulation(
+            config=SimulationConfig("advance", max_ticks=2),
+            controllers={
+                "alice-controller": ReplayController({"alice": []}),
+                "bob-controller": ReplayController({"bob": []}),
+            },
+            world=world,
+            events=sink,
+        )
+        asyncio.run(simulation.run())
+
+        self.assertEqual([0, 1], world.advanced)
+        self.assertEqual(2, len([event for event in sink.events if event.event_type == "world_advanced"]))

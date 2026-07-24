@@ -145,6 +145,11 @@ class Simulation:
                 action.action_id for action in writes
             ]:
                 raise RuntimeError("World must preserve the runtime's stable action ordering")
+            advance_tick = getattr(self.world, "advance_tick", None)
+            if advance_tick is not None:
+                if not callable(advance_tick):
+                    raise RuntimeError("World.advance_tick must be callable")
+                advance_tick(tick_id)
         except BaseException as error:
             self.world.restore(snapshot)
             self._emit(
@@ -169,6 +174,8 @@ class Simulation:
                 entity_id=decision.action.entity_id,
                 payload={"result": self._result_payload(decision.result)},
             )
+        if getattr(self.world, "advance_tick", None) is not None:
+            self._emit("world_advanced", tick_id)
 
         self._current_tick += 1
         self._emit("tick_committed", tick_id)
