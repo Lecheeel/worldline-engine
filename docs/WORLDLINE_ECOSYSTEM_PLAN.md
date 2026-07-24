@@ -1,6 +1,6 @@
 # Worldline 项目拆分与实施规划
 
-状态：实施中。`worldline-engine` 已完成第一轮核心收敛，`worldline-social` 已建立独立仓库和最小 SocialWorld 闭环。
+状态：实施中。`worldline-engine` 已完成核心收敛和第二阶段失败/预算语义，`worldline-social` 已建立独立公开仓库、最小 SocialWorld、PopulationManifest 和版本化 SocialState。
 
 ## 1. 项目关系
 

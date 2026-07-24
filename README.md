@@ -46,6 +46,9 @@ await simulation.run()
 - Every turn in a tick observes the same world snapshot.
 - Uncommitted writes are visible only to their own turn.
 - Buffered writes are submitted in stable order independent of concurrency.
+- Turn action, controller-call, cost, repetition, failure, and timeout limits are explicit configuration.
+- Controller or World failures discard the affected turn's buffered writes.
+- A failed or malformed World commit restores the tick snapshot before propagating the error.
 - Events are append-only facts and checkpoints contain world, controller, and runtime state.
 - Replay can replace external controllers with recorded intents.
 

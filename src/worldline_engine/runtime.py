@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from .protocols import (
@@ -63,6 +65,14 @@ class Simulation:
             raise ValueError("max_concurrent_turns must be at least one")
         if config.checkpoint_every_ticks < 1:
             raise ValueError("checkpoint_every_ticks must be at least one")
+        if config.max_cost_per_turn is not None and config.max_cost_per_turn < 0:
+            raise ValueError("max_cost_per_turn must not be negative")
+        if config.turn_timeout_seconds is not None and config.turn_timeout_seconds <= 0:
+            raise ValueError("turn_timeout_seconds must be positive")
+        if config.max_consecutive_failures < 1:
+            raise ValueError("max_consecutive_failures must be at least one")
+        if config.max_repeated_actions < 1:
+            raise ValueError("max_repeated_actions must be at least one")
 
         self.config = config
         self.entities = tuple(sorted(entities, key=lambda entity: entity.entity_id))
@@ -127,16 +137,30 @@ class Simulation:
             (write for outcome in ordered_outcomes for write in outcome.writes),
             key=lambda action: action.ordering_key,
         )
-        decisions = self.world.resolve_and_apply(snapshot, writes)
-        if len(decisions) != len(writes):
-            raise RuntimeError("World must return one commit decision per buffered action")
-        if [decision.action.action_id for decision in decisions] != [
-            action.action_id for action in writes
-        ]:
-            raise RuntimeError("World must preserve the runtime's stable action ordering")
+        try:
+            decisions = self.world.resolve_and_apply(snapshot, writes)
+            if len(decisions) != len(writes):
+                raise RuntimeError("World must return one commit decision per buffered action")
+            if [decision.action.action_id for decision in decisions] != [
+                action.action_id for action in writes
+            ]:
+                raise RuntimeError("World must preserve the runtime's stable action ordering")
+        except BaseException as error:
+            self.world.restore(snapshot)
+            self._emit(
+                "commit_error",
+                tick_id,
+                payload={"error_type": type(error).__name__, "message": str(error)},
+            )
+            raise
         for decision in decisions:
             status = decision.result.status
-            event_type = "action_committed" if status is ActionStatus.ACCEPTED else "action_rejected"
+            if status is ActionStatus.ACCEPTED:
+                event_type = "action_committed"
+            elif status is ActionStatus.FAILED:
+                event_type = "action_failed"
+            else:
+                event_type = "action_rejected"
             self._emit(
                 event_type,
                 tick_id,
@@ -171,6 +195,32 @@ class Simulation:
     async def _run_turn(
         self, tick_id: int, turn: TurnSpec, snapshot: Any
     ) -> _TurnOutcome:
+        if self.config.turn_timeout_seconds is None:
+            return await self._run_turn_body(tick_id, turn, snapshot)
+        try:
+            async with asyncio.timeout(self.config.turn_timeout_seconds):
+                return await self._run_turn_body(tick_id, turn, snapshot)
+        except TimeoutError:
+            turn_id = f"{tick_id}:{turn.turn_index}:{turn.entity_id}"
+            return _TurnOutcome(
+                turn,
+                turn_id,
+                [],
+                [
+                    _EventDraft("turn_started", turn_id=turn_id, entity_id=turn.entity_id),
+                    _EventDraft("turn_timeout", turn_id=turn_id, entity_id=turn.entity_id),
+                    _EventDraft(
+                        "turn_finished",
+                        {"reason": "timeout", "controller_calls": 0, "actions": 0, "cost": 0},
+                        turn_id=turn_id,
+                        entity_id=turn.entity_id,
+                    ),
+                ],
+            )
+
+    async def _run_turn_body(
+        self, tick_id: int, turn: TurnSpec, snapshot: Any
+    ) -> _TurnOutcome:
         entity = self._entity(turn.entity_id)
         controller = self.controllers[entity.controller_ref]
         turn_id = f"{tick_id}:{turn.turn_index}:{turn.entity_id}"
@@ -179,14 +229,37 @@ class Simulation:
         previous_result: ActionResult | None = None
         controller_calls = 0
         action_index = 0
+        total_cost = 0
+        consecutive_failures = 0
+        repeated_actions: dict[str, int] = {}
+        discard_writes = False
         finish_reason = "action_limit"
 
         while action_index < self.config.max_actions_per_turn:
             if controller_calls >= self.config.max_controller_calls_per_turn:
                 finish_reason = "controller_call_limit"
                 break
-            action_specs = tuple(self.world.available_actions(turn.entity_id, snapshot))
-            observation = self.world.observe(turn.entity_id, snapshot, writes)
+            try:
+                action_specs = tuple(
+                    self.world.available_actions(turn.entity_id, snapshot)
+                )
+                observation = self.world.observe(turn.entity_id, snapshot, writes)
+            except Exception as error:
+                events.append(
+                    _EventDraft(
+                        "world_error",
+                        {
+                            "stage": "observe",
+                            "error_type": type(error).__name__,
+                            "message": str(error),
+                        },
+                        turn_id=turn_id,
+                        entity_id=turn.entity_id,
+                    )
+                )
+                finish_reason = "world_error"
+                discard_writes = True
+                break
             context = TurnContext(
                 simulation_id=self.config.simulation_id,
                 tick_id=tick_id,
@@ -197,6 +270,12 @@ class Simulation:
                 previous_result=previous_result,
                 remaining_actions=self.config.max_actions_per_turn - action_index,
                 remaining_controller_calls=self.config.max_controller_calls_per_turn - controller_calls,
+                remaining_cost=(
+                    None
+                    if self.config.max_cost_per_turn is None
+                    else self.config.max_cost_per_turn - total_cost
+                ),
+                random_seed=self._turn_seed(tick_id, turn),
             )
             controller_calls += 1
             events.append(_EventDraft("controller_called", turn_id=turn_id, entity_id=turn.entity_id))
@@ -212,6 +291,7 @@ class Simulation:
                     )
                 )
                 finish_reason = "controller_error"
+                discard_writes = True
                 break
 
             if isinstance(decision, FinishTurn):
@@ -227,6 +307,7 @@ class Simulation:
                     )
                 )
                 finish_reason = "invalid_intent"
+                discard_writes = True
                 break
 
             action = BoundAction(
@@ -248,6 +329,26 @@ class Simulation:
                     entity_id=turn.entity_id,
                 )
             )
+            fingerprint = self._intent_fingerprint(decision)
+            repeated_actions[fingerprint] = repeated_actions.get(fingerprint, 0) + 1
+            if repeated_actions[fingerprint] > self.config.max_repeated_actions:
+                previous_result = ActionResult(
+                    action.action_id,
+                    ActionStatus.REJECTED,
+                    error_code="repeated_action_limit",
+                )
+                events.append(
+                    _EventDraft(
+                        "action_rejected",
+                        {"result": self._result_payload(previous_result)},
+                        turn_id=turn_id,
+                        action_id=action.action_id,
+                        entity_id=turn.entity_id,
+                    )
+                )
+                finish_reason = "repeated_action_limit"
+                action_index += 1
+                break
             spec = next((spec for spec in action_specs if spec.name == decision.action_type), None)
             previous_result = self._validate_envelope(action, spec)
             if previous_result is not None:
@@ -260,12 +361,77 @@ class Simulation:
                         entity_id=turn.entity_id,
                     )
                 )
+                consecutive_failures += 1
                 action_index += 1
+                if consecutive_failures >= self.config.max_consecutive_failures:
+                    finish_reason = "consecutive_failure_limit"
+                    break
                 continue
 
             assert spec is not None
+            if (
+                self.config.max_cost_per_turn is not None
+                and total_cost + spec.cost > self.config.max_cost_per_turn
+            ):
+                previous_result = ActionResult(
+                    action.action_id,
+                    ActionStatus.REJECTED,
+                    error_code="cost_budget_exceeded",
+                )
+                events.append(
+                    _EventDraft(
+                        "action_rejected",
+                        {"result": self._result_payload(previous_result)},
+                        turn_id=turn_id,
+                        action_id=action.action_id,
+                        entity_id=turn.entity_id,
+                    )
+                )
+                finish_reason = "cost_budget_exceeded"
+                action_index += 1
+                break
+            total_cost += spec.cost
+            events.append(
+                _EventDraft(
+                    "action_validated",
+                    {"cost": spec.cost},
+                    turn_id=turn_id,
+                    action_id=action.action_id,
+                    entity_id=turn.entity_id,
+                )
+            )
+            try:
+                if spec.kind is ActionKind.READ:
+                    previous_result = self.world.execute_read(action, snapshot, writes)
+                else:
+                    previous_result = self.world.validate_write(
+                        action,
+                        snapshot,
+                        writes,
+                    )
+            except Exception as error:
+                events.append(
+                    _EventDraft(
+                        "world_error",
+                        {
+                            "stage": "execute_read"
+                            if spec.kind is ActionKind.READ
+                            else "validate_write",
+                            "error_type": type(error).__name__,
+                            "message": str(error),
+                        },
+                        turn_id=turn_id,
+                        action_id=action.action_id,
+                        entity_id=turn.entity_id,
+                    )
+                )
+                finish_reason = "world_error"
+                discard_writes = True
+                break
+
             if spec.kind is ActionKind.READ:
-                previous_result = self.world.execute_read(action, snapshot, writes)
+                if previous_result.cost == 0 and spec.cost != 0:
+                    previous_result = replace(previous_result, cost=spec.cost)
                 events.append(
                     _EventDraft(
                         "action_read" if previous_result.status is ActionStatus.ACCEPTED else "action_rejected",
@@ -276,7 +442,8 @@ class Simulation:
                     )
                 )
             else:
-                previous_result = self.world.validate_write(action, snapshot, writes)
+                if previous_result.cost == 0 and spec.cost != 0:
+                    previous_result = replace(previous_result, cost=spec.cost)
                 event_type = "action_buffered" if previous_result.status is ActionStatus.ACCEPTED else "action_rejected"
                 events.append(
                     _EventDraft(
@@ -289,17 +456,46 @@ class Simulation:
                 )
                 if previous_result.status is ActionStatus.ACCEPTED:
                     writes.append(action)
+            if previous_result.status is ActionStatus.ACCEPTED:
+                consecutive_failures = 0
+            else:
+                consecutive_failures += 1
             action_index += 1
+            if consecutive_failures >= self.config.max_consecutive_failures:
+                finish_reason = "consecutive_failure_limit"
+                break
 
         events.append(
             _EventDraft(
                 "turn_finished",
-                {"reason": finish_reason, "controller_calls": controller_calls, "actions": action_index},
+                {
+                    "reason": finish_reason,
+                    "controller_calls": controller_calls,
+                    "actions": action_index,
+                    "cost": total_cost,
+                },
                 turn_id=turn_id,
                 entity_id=turn.entity_id,
             )
         )
-        return _TurnOutcome(turn, turn_id, writes, events)
+        return _TurnOutcome(turn, turn_id, [] if discard_writes else writes, events)
+
+    def _turn_seed(self, tick_id: int, turn: TurnSpec) -> int:
+        payload = f"{self.config.seed}:{tick_id}:{turn.turn_index}:{turn.entity_id}"
+        return int.from_bytes(hashlib.sha256(payload.encode()).digest()[:8], "big")
+
+    @staticmethod
+    def _intent_fingerprint(intent: ActionIntent) -> str:
+        return json.dumps(
+            {
+                "action_type": intent.action_type,
+                "parameters": intent.parameters,
+                "target_ref": intent.target_ref,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            default=str,
+        )
 
     def _save_checkpoint(self, completed_tick: int) -> None:
         self.state_store.save_checkpoint(
@@ -335,6 +531,12 @@ class Simulation:
                 ActionStatus.REJECTED,
                 error_code="missing_required_parameters",
                 data={"missing": missing},
+            )
+        if not isinstance(spec.cost, int) or spec.cost < 0:
+            return ActionResult(
+                action.action_id,
+                ActionStatus.REJECTED,
+                error_code="invalid_action_cost",
             )
         return None
 

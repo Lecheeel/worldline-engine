@@ -32,6 +32,10 @@ class SimulationConfig:
     max_controller_calls_per_turn: int = 8
     max_concurrent_turns: int = 1
     checkpoint_every_ticks: int = 1
+    max_cost_per_turn: int | None = None
+    turn_timeout_seconds: float | None = None
+    max_consecutive_failures: int = 3
+    max_repeated_actions: int = 3
 
 
 @dataclass(frozen=True)
@@ -108,6 +112,8 @@ class TurnContext:
     previous_result: ActionResult | None
     remaining_actions: int
     remaining_controller_calls: int
+    remaining_cost: int | None = None
+    random_seed: int = 0
 
 
 @dataclass(frozen=True)
