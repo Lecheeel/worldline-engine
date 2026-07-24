@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import importlib.util
-import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,7 +11,6 @@ from worldline_engine import (
     EntitySpec,
     InMemoryStateStore,
     MemoryEventSink,
-    MemoryRecord,
     ReplayController,
     RuleController,
     SQLiteStateStore,
@@ -22,8 +19,6 @@ from worldline_engine import (
     SimulationConfig,
 )
 from worldline_engine.protocols import SimulationEvent
-from worldline_engine.stores import SQLiteMemoryStore
-from worldline_engine.vector import SQLiteVecMemoryIndex
 from worldline_engine.worlds import CounterWorld
 
 
@@ -155,64 +150,3 @@ class SimulationRuntimeTests(unittest.TestCase):
 
         self.assertEqual(4, checkpoint["tick_id"])
         self.assertEqual({"value": 2}, checkpoint["world_state"])
-
-    def test_sqlite_event_sink_and_memory_store_share_one_file(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "experiment.sqlite"
-            events = SQLiteEventSink(path)
-            memories = SQLiteMemoryStore(path)
-            events.append(
-                SimulationEvent(
-                    event_id="run:event:1",
-                    event_type="action_committed",
-                    simulation_id="run",
-                    tick_id=0,
-                    sequence=1,
-                    payload={"status": "accepted"},
-                    entity_id="alice",
-                )
-            )
-            memories.add(
-                MemoryRecord(
-                    memory_id="memory:1",
-                    simulation_id="run",
-                    person_id="alice",
-                    tick_id=0,
-                    kind="event",
-                    content="Alice claimed the resource.",
-                    importance=0.8,
-                    source_action_id="run:0:0:0",
-                )
-            )
-            events.close()
-            memories.close()
-
-            connection = sqlite3.connect(path)
-            event_count = connection.execute("SELECT COUNT(*) FROM simulation_events").fetchone()[0]
-            connection.close()
-
-            reopened = SQLiteMemoryStore(path)
-            records = reopened.list_for_person("run", "alice")
-            reopened.close()
-
-        self.assertEqual(1, event_count)
-        self.assertEqual(["memory:1"], [record.memory_id for record in records])
-
-    @unittest.skipUnless(importlib.util.find_spec("sqlite_vec"), "sqlite-vec extra is not installed")
-    def test_sqlite_vec_indexes_canonical_memory_ids(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "experiment.sqlite"
-            memories = SQLiteMemoryStore(path)
-            index = SQLiteVecMemoryIndex(path, dimensions=3)
-            try:
-                memories.add(
-                    MemoryRecord("m1", "run", "alice", 0, "event", "first memory")
-                )
-                index.upsert("m1", [1.0, 0.0, 0.0])
-                index.upsert("m2", [0.0, 1.0, 0.0])
-                matches = index.search([0.9, 0.1, 0.0], limit=1)
-            finally:
-                index.close()
-                memories.close()
-
-        self.assertEqual(["m1"], [match.memory_id for match in matches])

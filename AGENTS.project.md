@@ -7,15 +7,13 @@
 
 - `runtime.py` 只管理执行语义，不依赖模型 SDK、向量数据库 SDK 或具体领域。
 - `World` 是领域规则唯一所有者；`Controller` 只提出 `ActionIntent`。
-- `providers/` 是模型供应商适配边界，供应商响应必须转换成统一协议。
+- 模型供应商、Prompt、记忆和向量索引属于上层项目，不进入本仓库。
 - SQLite 保存实验事实、状态、事件、原始记忆和召回审计；`sqlite-vec` 只是可重建索引。
 - 不把 API key、完整凭据或私有请求对象写入事件、checkpoint、日志或测试文件。
 
 ## 本地命令
 
 - 安装：`python -m pip install -e .`
-- 向量扩展：`python -m pip install -e ".[vector]"`
-- 本地 embedding：`python -m pip install -e ".[embedding]"`
 - 测试：`python -m unittest discover -s tests -v`
 - 静态检查：`python -m compileall -q src tests examples scripts`
 - 格式化：当前没有配置格式化工具，不得声称已运行格式化。
@@ -24,7 +22,7 @@
 ## 模块与测试
 
 - 新增领域能力必须实现或扩展 `World`，不能把领域判断写进运行时。
-- 新增模型供应商必须实现 Provider 协议，并添加不需要网络的 fake-provider 测试。
+- 新增领域或模型能力应放入使用本引擎的上层仓库。
 - 影响 tick、快照、提交、回放、checkpoint 或召回语义时，必须运行完整测试集。
 - 外部 API smoke test 使用临时环境变量，不能将密钥写入项目或输出。
 - 生成的 `runs/`、SQLite、缓存、wheel 和日志不得提交。
@@ -33,7 +31,7 @@
 
 - 仓库默认分支为 `main`；首次初始化使用 `git init -b main`。
 - 提交使用英文 Conventional Commits，例如：
-  `feat(memory): add deterministic recall auditing`。
+  `feat(runtime): add deterministic turn budgets`。
 - 提交前检查 `git diff --check`、`.gitignore` 和待提交文件。
 - 不自动重写历史、不使用 destructive reset、不在未确认远端设置时推送。
 

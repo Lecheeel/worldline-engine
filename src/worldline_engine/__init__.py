@@ -1,15 +1,7 @@
-"""Public API for Worldline Engine."""
+"""Public API for the domain-neutral Worldline execution engine."""
 
-from .controllers import LLMToolController, ReplayController, RuleController
+from .controllers import ReplayController, RuleController
 from .events import JsonlEventSink, MemoryEventSink, SQLiteEventSink
-from .memory import (
-    HashEmbeddingProvider,
-    MemoryContextBuilder,
-    MemoryMatch,
-    SQLiteMemoryRecallRecorder,
-    SentenceTransformerEmbeddingProvider,
-    SQLiteMemoryProvider,
-)
 from .protocols import (
     ActionIntent,
     ActionKind,
@@ -21,7 +13,7 @@ from .protocols import (
 )
 from .runtime import Simulation
 from .scheduler import AllEntitiesScheduler, RandomActivationScheduler
-from .stores import MemoryRecord, InMemoryStateStore, SQLiteMemoryStore, SQLiteStateStore
+from .stores import InMemoryStateStore, SQLiteStateStore
 
 __all__ = [
     "ActionIntent",
@@ -33,21 +25,12 @@ __all__ = [
     "FinishTurn",
     "InMemoryStateStore",
     "JsonlEventSink",
-    "LLMToolController",
-    "HashEmbeddingProvider",
-    "MemoryContextBuilder",
-    "MemoryMatch",
-    "SentenceTransformerEmbeddingProvider",
-    "SQLiteMemoryProvider",
-    "SQLiteMemoryRecallRecorder",
     "MemoryEventSink",
-    "MemoryRecord",
     "RandomActivationScheduler",
     "ReplayController",
     "RuleController",
     "Simulation",
     "SimulationConfig",
-    "SQLiteStateStore",
     "SQLiteEventSink",
-    "SQLiteMemoryStore",
+    "SQLiteStateStore",
 ]

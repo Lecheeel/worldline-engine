@@ -4,18 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "worldline-engine"
-version = "0.1.0"
+version = "0.2.0"
 description = "Deterministic, replayable discrete-time multi-agent simulation engine"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Worldline Engine Contributors" }]
 dependencies = []
-
-[project.optional-dependencies]
-sqlite = ["aiosqlite>=0.22,<0.23"]
-vector = ["sqlite-vec>=0.1.9,<0.2"]
-embedding = ["sentence-transformers>=3.0,<4.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/worldline_engine"]

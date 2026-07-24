@@ -69,32 +69,5 @@ def architecture():
     finish(ax, "Figure 1. Layered execution architecture", "architecture.svg")
 
 
-def memory_pipeline():
-    fig, ax = plt.subplots(figsize=(11, 4.9), dpi=160)
-    ax.add_patch(Rectangle((0.3, 0.45), 9.4, 3.75, facecolor="#fbfcfe",
-                           edgecolor="#9aa5b1", linewidth=1.0, linestyle="--"))
-    ax.text(0.55, 3.92, "MEMORY RETRIEVAL AND REPLAY AUDIT PATH", fontsize=9,
-            color="#52606d", fontweight="bold")
-    box(ax, (0.65, 2.2), 1.55, 0.95, "Query", "person-scoped\ntext query", face="#e8f1fb")
-    box(ax, (2.55, 2.2), 1.65, 0.95, "Embedding", "provider-specific\nvector", face="#e8f1fb")
-    box(ax, (4.55, 2.2), 1.65, 0.95, "sqlite-vec", "nearest neighbors\nmemory_id only", face="#edf6f0")
-    box(ax, (6.55, 2.2), 2.3, 0.95, "Canonical SQLite", "memory text + metadata\nrecall audit records", face="#f4effa")
-    box(ax, (3.45, 0.75), 2.3, 0.95, "Context Builder", "ranked memories\nmodel-ready messages", face="#fff4e5")
-    box(ax, (6.55, 0.75), 2.3, 0.95, "Controller", "LLM tool-call\ndecision", face="#fff4e5")
-    arrow(ax, (2.25, 2.68), (2.5, 2.68))
-    arrow(ax, (4.25, 2.68), (4.5, 2.68))
-    arrow(ax, (6.25, 2.68), (6.5, 2.68))
-    arrow(ax, (7.7, 2.18), (5.45, 1.78))
-    arrow(ax, (5.8, 1.22), (6.45, 1.22))
-    ax.annotate("audit: query + selected memory_id", xy=(5.95, 2.35), xytext=(5.8, 3.65),
-                ha="center", fontsize=8, color="#7b8794",
-                arrowprops={"arrowstyle": "-[", "linewidth": 0.8, "color": "#7b8794"})
-    ax.text(0.65, 0.1, "Canonical text is the replay source; the vector index is rebuildable.",
-            fontsize=8.2, color="#52606d")
-    finish(ax, "Figure 2. Memory retrieval, context assembly, and auditability", "memory-pipeline.svg",
-           ylim=(0, 4.7))
-
-
 if __name__ == "__main__":
     architecture()
-    memory_pipeline()
