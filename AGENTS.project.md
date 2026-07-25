@@ -8,7 +8,7 @@
 - `runtime.py` 只管理执行语义，不依赖模型 SDK、向量数据库 SDK 或具体领域。
 - `World` 是领域规则唯一所有者；`Controller` 只提出 `ActionIntent`。
 - 模型供应商、Prompt、记忆和向量索引属于上层项目，不进入本仓库。
-- SQLite 保存实验事实、状态、事件、原始记忆和召回审计；`sqlite-vec` 只是可重建索引。
+- SQLite 可作为引擎的通用 checkpoint 与事件后端；记忆、召回和向量索引属于上层项目。
 - 不把 API key、完整凭据或私有请求对象写入事件、checkpoint、日志或测试文件。
 
 ## 本地命令
