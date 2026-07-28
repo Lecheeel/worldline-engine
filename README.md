@@ -29,7 +29,7 @@ python -m unittest discover -s tests -v
 
 下面的结构图展示一次确定性 tick 中 `Simulation`、`Scheduler`、`Turn`、`Controller`、`ActionIntent` 与 `World` 的关系，以及快照、checkpoint 和事件轨迹如何支撑恢复与回放。
 
-![Worldline Engine deterministic world structure](docs/figures/world-structure.svg)
+![Worldline Engine 世界结构图](docs/figures/world-structure-zh.svg)
 
 Engine 本身不要求 LLM、embedding 或向量数据库。你可以先用规则或回放控制器跑通一个小世界，再按需要接入更复杂的 Agent。
 
@@ -78,7 +78,7 @@ python -m unittest discover -s tests -v
 
 The diagram below shows how `Simulation`, `Scheduler`, `Turn`, `Controller`, `ActionIntent`, and `World` cooperate during one deterministic tick, and how snapshots, checkpoints, and events support recovery and replay.
 
-![Worldline Engine deterministic world structure](docs/figures/world-structure.svg)
+![Worldline Engine world structure](docs/figures/world-structure-en.svg)
 
 ## Start With a Question
 

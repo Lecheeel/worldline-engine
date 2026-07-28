@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch, Rectangle
 
 
+plt.rcParams["font.family"] = "Noto Sans SC"
+plt.rcParams["axes.unicode_minus"] = False
+
+
 ROOT = Path(__file__).resolve().parents[1]
 FIGURES = ROOT / "docs" / "figures"
 
@@ -70,64 +74,72 @@ def architecture():
 
 
 def world_structure():
-    """Show the lifecycle of one deterministic tick and its boundaries."""
-    fig, ax = plt.subplots(figsize=(12, 7.0), dpi=160)
+    world_structure_language("zh")
+    world_structure_language("en")
+
+
+def world_structure_language(language: str):
+    """Render a clean swimlane diagram in one language."""
+    is_zh = language == "zh"
+    labels = {
+        "title": "Worldline Engine 世界结构" if is_zh else "Worldline Engine World Structure",
+        "flow": "一个 Tick 的确定性执行流程" if is_zh else "Deterministic execution of one tick",
+        "support": "状态与持久化支撑" if is_zh else "State and persistence support",
+        "simulation": ("Simulation", "启动 / 恢复\n推进当前 tick") if is_zh else ("Simulation", "run / resume\nadvance tick"),
+        "scheduler": ("Scheduler", "选择启用的 Agent") if is_zh else ("Scheduler", "select enabled agents"),
+        "turn": ("Turn", "一个 Agent 的行动回合") if is_zh else ("Turn", "one agent action turn"),
+        "controller": ("Controller", "读取观察\n提出 ActionIntent") if is_zh else ("Controller", "read observation\npropose ActionIntent"),
+        "world": ("World", "读取 / 校验\n领域规则") if is_zh else ("World", "read / validate\ndomain rules"),
+        "commit": ("Commit", "稳定顺序提交\n产生 ActionResult") if is_zh else ("Commit", "stable ordered commit\nproduce ActionResult"),
+        "snapshot": ("Tick Snapshot", "所有 Turn 共享的\n只读世界快照") if is_zh else ("Tick Snapshot", "read-only world state\nshared by all turns"),
+        "store": ("StateStore", "checkpoint\n恢复运行时状态") if is_zh else ("StateStore", "checkpoint\nrestore runtime state"),
+        "events": ("EventSink", "追加事实\n审计与回放轨迹") if is_zh else ("EventSink", "append-only facts\naudit and replay trail"),
+        "next": "进入下一个 Tick" if is_zh else "advance to next tick",
+        "legend": "实线：执行流    虚线：状态与持久化" if is_zh else "Solid: execution flow    Dashed: state and persistence",
+    }
+    fig, ax = plt.subplots(figsize=(13, 5.7), dpi=180)
+    ax.set_xlim(0, 13)
+    ax.set_ylim(0, 5.7)
+    ax.axis("off")
     ax.set_facecolor("#ffffff")
+    fig.patch.set_facecolor("#ffffff")
 
-    # Outer execution boundary and the two phases inside each tick.
-    ax.add_patch(FancyBboxPatch(
-        (0.35, 0.35), 11.3, 6.15,
-        boxstyle="round,pad=0.02,rounding_size=0.04",
-        linewidth=1.1, edgecolor="#8b98a5", facecolor="#fbfcfe",
-    ))
-    ax.text(0.62, 6.18, "WORLDLINE ENGINE", fontsize=10, fontweight="bold", color="#52606d")
-    ax.add_patch(FancyBboxPatch(
-        (0.65, 3.2), 10.7, 2.55,
-        boxstyle="round,pad=0.018,rounding_size=0.03",
-        linewidth=1.0, edgecolor="#b8c4cf", facecolor="#eef5fb",
-    ))
-    ax.text(0.92, 5.48, "ONE TICK: read, act, validate, commit", fontsize=9,
-            fontweight="bold", color="#34495e")
-    ax.add_patch(FancyBboxPatch(
-        (0.65, 0.72), 10.7, 2.05,
-        boxstyle="round,pad=0.018,rounding_size=0.03",
-        linewidth=1.0, edgecolor="#c9c0d6", facecolor="#f7f3fa",
-    ))
-    ax.text(0.92, 2.52, "PERSISTENCE AND REPLAY", fontsize=9,
-            fontweight="bold", color="#5c4b6e")
+    ax.text(0.35, 5.35, labels["title"], fontsize=16, fontweight="bold", color="#17202a")
+    ax.text(0.35, 5.02, labels["flow"], fontsize=10, color="#52606d")
+    ax.add_patch(Rectangle((0.25, 2.7), 12.5, 2.0, facecolor="#f5f9fd", edgecolor="#b8c4cf", linewidth=1.0))
+    ax.add_patch(Rectangle((0.25, 0.55), 12.5, 1.65, facecolor="#fbf8fd", edgecolor="#c9c0d6", linewidth=1.0))
+    ax.text(0.5, 4.43, labels["flow"], fontsize=9, fontweight="bold", color="#34495e")
+    ax.text(0.5, 1.94, labels["support"], fontsize=9, fontweight="bold", color="#5c4b6e")
 
-    # Tick execution path.
-    box(ax, (0.95, 4.2), 1.75, 0.9, "Simulation", "run / resume\ncurrent tick", face="#e4effa")
-    box(ax, (3.0, 4.2), 1.75, 0.9, "Scheduler", "select enabled\nentities", face="#e4effa")
-    box(ax, (5.05, 4.2), 1.75, 0.9, "Turn", "one Agent\ncontext + budget", face="#edf6f0")
-    box(ax, (7.1, 4.2), 1.75, 0.9, "Controller", "observe\npropose intent", face="#edf6f0")
-    box(ax, (9.15, 4.2), 1.75, 0.9, "World", "read / validate\napply domain rules", face="#fff4e5")
-    arrow(ax, (2.75, 4.65), (2.95, 4.65))
-    arrow(ax, (4.8, 4.65), (5.0, 4.65))
-    arrow(ax, (6.85, 4.65), (7.05, 4.65))
-    arrow(ax, (8.9, 4.65), (9.1, 4.65))
+    nodes = [
+        (0.55, labels["simulation"], "#e4effa"),
+        (2.55, labels["scheduler"], "#e4effa"),
+        (4.55, labels["turn"], "#edf6f0"),
+        (6.55, labels["controller"], "#edf6f0"),
+        (8.55, labels["world"], "#fff4e5"),
+        (10.55, labels["commit"], "#fff4e5"),
+    ]
+    for x, (title, detail), face in nodes:
+        box(ax, (x, 3.25), 1.55, 0.82, title, detail, face=face)
+    for x in (2.1, 4.1, 6.1, 8.1, 10.1):
+        arrow(ax, (x, 3.66), (x + 0.38, 3.66))
 
-    # Turn internals and the stable commit loop.
-    box(ax, (2.0, 3.42), 2.15, 0.62, "Agent / Entity", "TurnContext + observation", face="#f1f7f2")
-    box(ax, (4.75, 3.42), 2.15, 0.62, "ActionIntent", "local write buffer", face="#f1f7f2")
-    box(ax, (7.5, 3.42), 2.15, 0.62, "Commit", "stable action order\nActionResult", face="#fff4e5")
-    arrow(ax, (5.9, 4.16), (3.2, 4.08), color="#7b8794")
-    arrow(ax, (4.2, 3.73), (4.7, 3.73), color="#7b8794")
-    arrow(ax, (6.95, 3.73), (7.45, 3.73), color="#7b8794")
-    arrow(ax, (8.6, 4.16), (9.35, 4.16), color="#7b8794")
+    support_nodes = [
+        (1.0, labels["snapshot"], "#ffffff"),
+        (4.25, labels["store"], "#ffffff"),
+        (7.5, labels["events"], "#ffffff"),
+    ]
+    for x, (title, detail), face in support_nodes:
+        box(ax, (x, 0.92), 2.35, 0.72, title, detail, face=face)
+    # Dashed support relationships avoid crossing the main flow.
+    for start, end in [((1.32, 3.22), (2.0, 1.68)), ((9.33, 3.22), (5.35, 1.68)), ((10.95, 3.22), (8.6, 1.68))]:
+        ax.add_patch(FancyArrowPatch(start, end, arrowstyle="-|>", mutation_scale=10,
+                                     linewidth=1.0, linestyle=(0, (4, 3)), color="#8b98a5"))
+    ax.text(10.55, 1.12, labels["next"], fontsize=8.5, color="#52606d")
+    ax.text(0.35, 0.18, labels["legend"], fontsize=8.5, color="#52606d")
 
-    # Persistence and replay surfaces.
-    box(ax, (1.0, 1.18), 2.5, 0.82, "Tick Snapshot", "read-only world state\nshared by all turns", face="#ffffff")
-    box(ax, (4.05, 1.18), 2.5, 0.82, "StateStore", "checkpoint\nrestore runtime state", face="#ffffff")
-    box(ax, (7.1, 1.18), 2.5, 0.82, "EventSink", "append-only facts\nreplay / audit trail", face="#ffffff")
-    box(ax, (10.0, 1.18), 1.05, 0.82, "World", "restore", face="#fff4e5")
-    arrow(ax, (1.85, 4.16), (2.0, 2.08), color="#8b98a5", style="-|>")
-    arrow(ax, (8.0, 3.38), (5.3, 2.08), color="#8b98a5", style="-|>")
-    arrow(ax, (8.85, 3.38), (8.35, 2.08), color="#8b98a5", style="-|>")
-    arrow(ax, (9.95, 3.38), (10.35, 2.08), color="#8b98a5", style="-|>")
-    ax.text(1.0, 0.9, "Solid arrows: execution flow    Gray arrows: state, checkpoint, and event boundaries",
-            fontsize=8.2, color="#52606d")
-    finish(ax, "Figure 2. Deterministic world structure", "world-structure.svg", xlim=(0, 12), ylim=(0, 7))
+    filename = "world-structure-zh.svg" if is_zh else "world-structure-en.svg"
+    finish(ax, labels["title"], filename, xlim=(0, 13), ylim=(0, 5.7))
 
 
 if __name__ == "__main__":
