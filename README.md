@@ -14,17 +14,7 @@ Worldline Engine 是一个面向多 Agent 世界的确定性运行内核。它�
 - **时间真的向前走**：世界按 tick 推进，Agent 在各自的 turn 中行动，复杂过程因此变得可观察。
 - **失败不会污染整个世界**：局部行动先暂存，只有通过规则检查才会提交。
 - **随时暂停，之后继续**：checkpoint、恢复和追加事件让长实验不必从头开始。
-- **领域保持自由**：引擎不绑定社交、模型供应商或数据库，领域规则由你的 World 决定。
-
-## 它与 Worldline Social 的关系
-
-Worldline Engine 是底座，[Worldline Social](https://github.com/Lecheeel/worldline-social) 是建立在其上的第一个完整世界。Engine 负责“世界如何运行”，Social 负责“这个世界里的人如何相遇、表达、回应和改变”。
-
-```text
-Worldline Social      角色、关系、帖子、记忆与社会动态
-          ↓
-Worldline Engine      时间线、行动、提交、恢复与回放
-```
+- **领域保持自由**：引擎不绑定具体领域、模型供应商或数据库，领域规则由你的 World 决定。
 
 ## 快速开始
 
@@ -59,7 +49,7 @@ Apache License 2.0，详见 [LICENSE](LICENSE)。
 
 Worldline Engine is a deterministic execution core for multi-agent worlds. It places goal-driven entities inside a discrete timeline and gives every step a stable answer: what happened, when it happened, what was committed, and what failed.
 
-The engine does not tell you what to simulate. A city, a market, a game, an organization, or a living social world can define its own rules above the engine. Worldline Engine moves those rules forward reliably and preserves the trail needed to reproduce, compare, and replay an experiment.
+The engine does not tell you what to simulate. A city, a market, a game, or an organization can define its own rules above the engine. Worldline Engine moves those rules forward reliably and preserves the trail needed to reproduce, compare, and replay an experiment.
 
 ## Why Worldline
 
@@ -68,10 +58,6 @@ The engine does not tell you what to simulate. A city, a market, a game, an orga
 - **Isolated failure**: tentative actions are checked before they become world state.
 - **Pause and resume**: checkpoints and event history make long experiments resumable.
 - **Domain-neutral by design**: your World owns the meaning; the engine owns execution.
-
-## Engine + Social
-
-Worldline Engine is the foundation. [Worldline Social](https://github.com/Lecheeel/worldline-social) is the first complete world built on top of it: Engine answers *how a world runs*; Social explores *how people meet, speak, respond, and change*.
 
 ## Quick Start
 
